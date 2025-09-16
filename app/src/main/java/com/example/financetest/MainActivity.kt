@@ -5,27 +5,36 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +52,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     private val financeViewModel: FinanceViewModel by viewModels()
@@ -98,7 +113,8 @@ class FinanceViewModel : androidx.lifecycle.ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceAppScreen(vm: FinanceViewModel) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showBottomSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -106,28 +122,55 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 title = { Text("Finance") },
                 colors = TopAppBarDefaults.topAppBarColors()
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
-            }
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
-            BalanceHeader(balance = vm.balance.value)
-            HorizontalDivider()
-            TransactionList(
-                items = vm.transactions,
-                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp),
-                onDelete = { vm.removeTransaction(it) }
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragEnd = { 
+                            // Only trigger on upward swipes
+                            if (true) { // We'll detect direction in the gesture
+                                showBottomSheet = true
+                            }
+                        }
+                    ) { _, dragAmount ->
+                        // Check if it's an upward swipe (negative Y direction)
+                        if (dragAmount.y < -50) { // Threshold for upward swipe
+                            showBottomSheet = true
+                        }
+                    }
+                }
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                BalanceHeader(balance = vm.balance.value)
+                HorizontalDivider()
+                TransactionList(
+                    items = vm.transactions,
+                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp),
+                    onDelete = { vm.removeTransaction(it) }
+                )
+                
+                // Swipe up indicator
+                SwipeUpIndicator(
+                    onSwipeUp = { showBottomSheet = true }
+                )
+            }
         }
-        if (showDialog) {
-            AddTransactionDialog(
-                onDismiss = { showDialog = false },
+    }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            AddTransactionBottomSheet(
+                onDismiss = { showBottomSheet = false },
                 onAdd = { desc, amount, isExpense ->
                     vm.addTransaction(desc, amount, isExpense)
-                    showDialog = false
+                    showBottomSheet = false
                 }
             )
         }
@@ -192,7 +235,7 @@ fun TransactionRow(item: TransactionItem, onDelete: (Long) -> Unit) {
 }
 
 @Composable
-fun AddTransactionDialog(
+fun AddTransactionBottomSheet(
     onDismiss: () -> Unit,
     onAdd: (String, String, Boolean) -> Unit
 ) {
@@ -200,40 +243,112 @@ fun AddTransactionDialog(
     var amount by remember { mutableStateOf("") }
     var isExpense by remember { mutableStateOf(true) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Transaction") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Amount") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(onClick = { isExpense = true }) { Text("Expense") }
-                    TextButton(onClick = { isExpense = false }) { Text("Income") }
-                    Text(if (isExpense) "Marked as Expense" else "Marked as Income")
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onAdd(description, amount, isExpense) }) { Text("Add") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Handle bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RectangleShape)
+                .padding(vertical = 8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RectangleShape)
+            )
         }
-    )
+        
+        Text(
+            text = "Add Transaction",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Description") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        OutlinedTextField(
+            value = amount,
+            onValueChange = { amount = it },
+            label = { Text("Amount") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = { isExpense = true }) { 
+                Text(if (isExpense) "✓ Expense" else "Expense") 
+            }
+            TextButton(onClick = { isExpense = false }) { 
+                Text(if (!isExpense) "✓ Income" else "Income") 
+            }
+        }
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            ) { 
+                Text("Cancel") 
+            }
+            TextButton(
+                onClick = { onAdd(description, amount, isExpense) },
+                modifier = Modifier.weight(1f)
+            ) { 
+                Text("Add") 
+            }
+        }
+    }
+}
+
+@Composable
+fun SwipeUpIndicator(
+    onSwipeUp: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = { onSwipeUp() }
+                ) { _, _ -> }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                Icons.Default.KeyboardArrowUp,
+                contentDescription = "Swipe up to add transaction",
+                modifier = Modifier.size(24.dp)
+            )
+            Text(
+                text = "Swipe up to add transaction",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
 }
 
 private fun formatCurrency(value: Double): String {
