@@ -443,7 +443,7 @@ fun RemindersTab(vm: FinanceViewModel) {
                         ).show()
                     },
                     modifier = Modifier.weight(1f)
-                ) { Text("Date: ${'$'}{selectedDateTime.format(dateFormatter)}") }
+                ) { Text("Date: ${selectedDateTime.format(dateFormatter)}") }
                 TextButton(
                     onClick = {
                         val z = selectedDateTime
@@ -460,7 +460,7 @@ fun RemindersTab(vm: FinanceViewModel) {
                         ).show()
                     },
                     modifier = Modifier.weight(1f)
-                ) { Text("Time: ${'$'}{selectedDateTime.format(timeFormatter)}") }
+                ) { Text("Time: ${selectedDateTime.format(timeFormatter)}") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 TextButton(
