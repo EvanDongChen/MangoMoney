@@ -2,6 +2,8 @@ package com.example.financetest
 
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -254,21 +256,52 @@ fun TagsTab(vm: FinanceViewModel) {
 
 @Composable
 fun AnalyticsTab(vm: FinanceViewModel) {
+    // Compute monthly spending (sum of expenses per month).
+    val months = remember(vm.transactions) {
+        // group transactions by month/year derived from id (epoch millis)
+        val df = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")
+        vm.transactions
+            .filter { it.amount < 0 }
+            .groupBy { tx ->
+                val instant = java.time.Instant.ofEpochMilli(tx.id)
+                val zdt = java.time.ZonedDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
+                df.format(zdt)
+            }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+            .toList()
+            .sortedByDescending { it.first }
+    }
+
+    val maxAbs = months.maxOfOrNull { kotlin.math.abs(it.second) } ?: 1.0
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Analytics", style = MaterialTheme.typography.headlineSmall)
+        Text("Monthly Spending", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(12.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Summary", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Balance: ${formatCurrency(vm.balance.value)}")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Total Transactions: ${vm.transactions.size}")
-                Spacer(modifier = Modifier.height(8.dp))
-                val expense = vm.transactions.filter { it.amount < 0 }.sumOf { it.amount }
-                val income = vm.transactions.filter { it.amount > 0 }.sumOf { it.amount }
-                Text(text = "Total Income: ${formatCurrency(income)}")
-                Text(text = "Total Expense: ${formatCurrency(expense)}")
+
+        if (months.isEmpty()) {
+            Text("No expense transactions yet.", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            LazyColumn {
+                items(months) { (month, total) ->
+                    val spent = kotlin.math.abs(total)
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(month, style = MaterialTheme.typography.bodyLarge)
+                            Text(formatCurrency(-spent), style = MaterialTheme.typography.bodyLarge)
+                        }
+                        // visual bar
+                        val fraction = (spent / maxAbs).coerceIn(0.0, 1.0)
+                        androidx.compose.foundation.layout.Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .height(12.dp)
+                            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.RoundedCornerShape(6.dp))) {
+                            androidx.compose.foundation.layout.Box(modifier = Modifier
+                                .fillMaxWidth(fraction.toFloat())
+                                .height(12.dp)
+                                .background(androidx.compose.material3.MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(6.dp)))
+                        }
+                    }
+                }
             }
         }
     }
