@@ -14,13 +14,15 @@ import androidx.compose.ui.platform.LocalContext
 private val DarkColorScheme = darkColorScheme(
     primary = MangoOrangeDark,
     secondary = MangoGreenDark,
-    tertiary = MangoYellowDark
+    // Align to orange & green only
+    tertiary = MangoGreenDark
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = MangoOrange,
     secondary = MangoGreen,
-    tertiary = MangoYellow
+    // Align to orange & green only
+    tertiary = MangoGreen
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -36,8 +38,8 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun FinanceTestTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Disable dynamic color so the mango palette is always used
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

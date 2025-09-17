@@ -46,6 +46,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.InsertChart
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ListAlt
+import androidx.compose.material.icons.outlined.Flag
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import java.time.ZoneId
@@ -71,29 +78,36 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .pointerInput(Unit) {
-                    var totalDragX = 0f
-                    var totalDragY = 0f
-                    detectDragGestures(
-                        onDragStart = { totalDragX = 0f; totalDragY = 0f },
-                        onDragEnd = {
-                            if (kotlin.math.abs(totalDragX) > kotlin.math.abs(totalDragY)) {
-                                if (totalDragX > 80f) {
-                                    selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
-                                } else if (totalDragX < -80f) {
-                                    selectedTab = if (selectedTab < 4) selectedTab + 1 else selectedTab
-                                }
-                            }
-                        }
-                    ) { _, dragAmount ->
-                        totalDragX += dragAmount.x
-                        totalDragY += dragAmount.y
-                    }
-                }
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Content area
-                Box(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(Unit) {
+                            var totalDragX = 0f
+                            var totalDragY = 0f
+                            detectDragGestures(
+                                onDragStart = { totalDragX = 0f; totalDragY = 0f },
+                                onDragEnd = {
+                                    if (kotlin.math.abs(totalDragX) > kotlin.math.abs(totalDragY)) {
+                                        // Horizontal swipe - switch tabs
+                                        if (totalDragX > 80f) {
+                                            selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
+                                        } else if (totalDragX < -80f) {
+                                            selectedTab = if (selectedTab < 4) selectedTab + 1 else selectedTab
+                                        }
+                                    } else if (selectedTab == 2 && kotlin.math.abs(totalDragY) > kotlin.math.abs(totalDragX) && totalDragY < -50f) {
+                                        // Vertical swipe up on FinanceTab - add transaction
+                                        showBottomSheet = true
+                                    }
+                                }
+                            ) { _, dragAmount ->
+                                totalDragX += dragAmount.x
+                                totalDragY += dragAmount.y
+                            }
+                        }
+                ) {
                     when (selectedTab) {
                         0 -> RemindersTab(vm = vm)
                         1 -> AnalyticsTab(vm = vm)
@@ -108,27 +122,27 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Reminders") }
+                        icon = { Icon(Icons.Outlined.Notifications, contentDescription = "Reminders") }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Analytics") }
+                        icon = { Icon(Icons.Outlined.InsertChart, contentDescription = "Analytics") }
                     )
                     Tab(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        text = { Text("Home") }
+                        icon = { Icon(Icons.Outlined.Home, contentDescription = "Home") }
                     )
                     Tab(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
-                        text = { Text("Transactions") }
+                        icon = { Icon(Icons.Outlined.ListAlt, contentDescription = "Transactions") }
                     )
                     Tab(
                         selected = selectedTab == 4,
                         onClick = { selectedTab = 4 },
-                        text = { Text("Goals") }
+                        icon = { Icon(Icons.Outlined.Flag, contentDescription = "Goals") }
                     )
                 }
             }
@@ -179,9 +193,9 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                 onDelete = { vm.removeTransaction(it) }
             )
 
-            // Only this indicator area triggers the swipe-up add action
+            // Visual indicator for swipe up
             SwipeUpIndicator(
-                onSwipeUp = { onShowBottomSheet(true) }
+                onSwipeUp = { /* No longer needed - swipe handled by parent Box */ }
             )
         }
     }
