@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -197,22 +198,32 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 }
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                // Content area
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedTab) {
+                        0 -> AnalyticsTab(vm = vm)
+                        1 -> FinanceTab(vm = vm, showBottomSheet = showBottomSheet, onShowBottomSheet = { showBottomSheet = it })
+                        2 -> TagsTab(vm = vm)
+                    }
+                }
+
+                // Bottom tab row
                 TabRow(selectedTabIndex = selectedTab) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Transactions") }
+                        text = { Text("Analytics") }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
+                        text = { Text("Transactions") }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
                         text = { Text("Tags") }
                     )
-                }
-                
-                when (selectedTab) {
-                    0 -> FinanceTab(vm = vm, showBottomSheet = showBottomSheet, onShowBottomSheet = { showBottomSheet = it })
-                    1 -> TagsTab(vm = vm)
                 }
             }
         }
@@ -717,5 +728,44 @@ private fun formatCurrency(value: Double): String {
 fun GreetingPreview() {
     FinanceTestTheme {
         BalanceHeader(balance = 1234.56)
+    }
+}
+
+@Composable
+fun SideTabButton(title: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .background(bg, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 10.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(text = title, color = contentColor)
+    }
+}
+
+@Composable
+fun AnalyticsTab(vm: FinanceViewModel) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Analytics", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Summary", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Balance: ${formatCurrency(vm.balance.value)}")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Total Transactions: ${vm.transactions.size}")
+                Spacer(modifier = Modifier.height(8.dp))
+                val expense = vm.transactions.filter { it.amount < 0 }.sumOf { it.amount }
+                val income = vm.transactions.filter { it.amount > 0 }.sumOf { it.amount }
+                Text(text = "Total Income: ${formatCurrency(income)}")
+                Text(text = "Total Expense: ${formatCurrency(expense)}")
+            }
+        }
     }
 }
