@@ -64,13 +64,19 @@ fun BalanceHeader(balance: Double) {
             .padding(12.dp),
         colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Balance", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 text = formatCurrency(balance),
                 color = color,
-                style = androidx.compose.material3.MaterialTheme.typography.titleLarge
+                style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+            Text("Balance", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -506,36 +512,33 @@ fun GoalCircleCard(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                val remaining = if (goalAmount > 0) (goalAmount - spentAmount).coerceAtLeast(0.0) else 0.0
-                val subtitle = if (goalAmount > 0) {
-                    "Spent ${formatCurrency(-kotlin.math.abs(spentAmount))} of ${formatCurrency(-kotlin.math.abs(goalAmount))} (Remaining ${formatCurrency(-remaining)})"
-                } else {
-                    "No goal set"
-                }
+            // Bigger circle
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                CircularProgressIndicator(progress = progress.toFloat(), strokeWidth = 8.dp)
                 Text(
-                    subtitle,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    text = if (goalAmount > 0) "${(progress * 100).toInt()}%" else "—",
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 )
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp)) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
-                    CircularProgressIndicator(progress = progress.toFloat(), strokeWidth = 6.dp)
-                    Text(
-                        text = if (goalAmount > 0) "${(progress * 100).toInt()}%" else "—",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    )
-                }
+            // Title below the circle
+            Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            val remaining = if (goalAmount > 0) (goalAmount - spentAmount).coerceAtLeast(0.0) else 0.0
+            val subtitle = if (goalAmount > 0) {
+                "Spent ${formatCurrency(-kotlin.math.abs(spentAmount))} of ${formatCurrency(-kotlin.math.abs(goalAmount))} (Remaining ${formatCurrency(-remaining)})"
+            } else {
+                "No goal set"
             }
+            Text(
+                subtitle,
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
