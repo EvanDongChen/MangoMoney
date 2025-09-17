@@ -46,6 +46,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.text.style.TextAlign
 import java.time.Instant
@@ -57,6 +64,35 @@ import androidx.compose.ui.unit.sp
 
 // Semi-transparent dark green (alpha 0x80)
 val TransparentDarkGreen = Color(0x8033882B)
+
+@Composable
+fun DottedDivider(
+    modifier: Modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 2.dp)
+        .height(1.dp),
+    color: Color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+    dashWidth: androidx.compose.ui.unit.Dp = 6.dp,
+    gapWidth: androidx.compose.ui.unit.Dp = 6.dp,
+    overlapDp: Dp = 0.dp
+) {
+    val density = LocalDensity.current
+    val dash = with(density) { dashWidth.toPx() }
+    val gap = with(density) { gapWidth.toPx() }
+    val overlapPx = with(density) { overlapDp.toPx() }
+    val drawModifier = if (overlapPx > 0f) modifier.graphicsLayer { translationY = -overlapPx } else modifier
+    Canvas(modifier = drawModifier) {
+        val effect = PathEffect.dashPathEffect(floatArrayOf(dash, gap), 0f)
+        drawLine(
+            color = color,
+            start = Offset(0f, size.height / 2),
+            end = Offset(size.width, size.height / 2),
+            strokeWidth = size.height,
+            cap = StrokeCap.Round,
+            pathEffect = effect
+        )
+    }
+}
 
 @Composable
 fun BalanceHeader(balance: Double) {

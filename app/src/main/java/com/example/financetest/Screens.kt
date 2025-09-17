@@ -169,17 +169,14 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
             .fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 androidx.compose.foundation.Image(
                     painter = painterResource(id = R.drawable.moneymango),
                     contentDescription = "Money Mango Logo",
-                    modifier = Modifier.size(200.dp),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(200.dp),
+                    contentScale = ContentScale.FillWidth
                 )
+                DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
             }
             BalanceHeader(balance = vm.balance.value)
             // Monthly goal circle
@@ -208,13 +205,14 @@ fun TagsTab(vm: FinanceViewModel) {
     var showAddTagDialog by remember { mutableStateOf(false) }
     
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
             androidx.compose.foundation.Image(
                 painter = painterResource(id = R.drawable.transactions),
                 contentDescription = "Transactions Image",
-                modifier = Modifier.size(200.dp),
-                contentScale = ContentScale.Fit
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(200.dp),
+                contentScale = ContentScale.FillWidth
             )
+            DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
         }
         // Filter section
         Text(
@@ -322,13 +320,14 @@ fun AnalyticsTab(vm: FinanceViewModel) {
     val maxAbs = months.maxOfOrNull { kotlin.math.abs(it.second) } ?: 1.0
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
             androidx.compose.foundation.Image(
                 painter = painterResource(id = R.drawable.analytics),
                 contentDescription = "Analytics Image",
-                modifier = Modifier.size(200.dp),
-                contentScale = ContentScale.Fit
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(200.dp),
+                contentScale = ContentScale.FillWidth
             )
+            DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text("Monthly Spending", style = MaterialTheme.typography.headlineSmall)
@@ -371,15 +370,17 @@ fun GoalsTab(vm: FinanceViewModel) {
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 androidx.compose.foundation.Image(
                     painter = painterResource(id = R.drawable.goals),
                     contentDescription = "Goals Image",
-                    modifier = Modifier.size(200.dp),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(200.dp),
+                        contentScale = ContentScale.FillWidth
                 )
+                DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
             }
         }
+
         item {
             GoalRow(
                 title = "Daily",
@@ -431,13 +432,14 @@ fun RemindersTab(vm: FinanceViewModel) {
     val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
             androidx.compose.foundation.Image(
                 painter = painterResource(id = R.drawable.reminders),
                 contentDescription = "Reminders Image",
-                modifier = Modifier.size(200.dp),
-                contentScale = ContentScale.Fit
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(200.dp),
+                contentScale = ContentScale.FillWidth
             )
+            DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
         }
 
         Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
