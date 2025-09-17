@@ -181,20 +181,30 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .pointerInput(Unit) {
+                    var totalX = 0f
+                    var totalY = 0f
                     detectDragGestures(
-                        onDragEnd = { }
-                    ) { _, dragAmount ->
-                        // Detect horizontal swipes
-                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y)) {
-                            if (dragAmount.x > 50) {
-                                // Swipe right - go to previous tab
-                                selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
-                            } else if (dragAmount.x < -50) {
-                                // Swipe left - go to next tab
-                                selectedTab = if (selectedTab < 1) selectedTab + 1 else selectedTab
+                        onDragStart = {
+                            totalX = 0f
+                            totalY = 0f
+                        },
+                        onDrag = { _, dragAmount ->
+                            totalX += dragAmount.x
+                            totalY += dragAmount.y
+                        },
+                        onDragEnd = {
+                            if (kotlin.math.abs(totalX) > kotlin.math.abs(totalY) && kotlin.math.abs(totalX) > 100f) {
+                                val tabCount = 3
+                                if (totalX < 0f) {
+                                    // Swipe left - next tab (wrap to first from last)
+                                    selectedTab = (selectedTab + 1) % tabCount
+                                } else {
+                                    // Swipe right - previous tab (wrap to last from first)
+                                    selectedTab = (selectedTab - 1 + tabCount) % tabCount
+                                }
                             }
                         }
-                    }
+                    )
                 }
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
