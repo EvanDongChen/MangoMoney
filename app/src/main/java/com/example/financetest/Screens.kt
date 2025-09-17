@@ -72,19 +72,22 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .pointerInput(Unit) {
+                    var totalDragX = 0f
+                    var totalDragY = 0f
                     detectDragGestures(
-                        onDragEnd = { }
-                    ) { _, dragAmount ->
-                        // Detect horizontal swipes
-                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y)) {
-                            if (dragAmount.x > 50) {
-                                // Swipe right - go to previous tab
-                                selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
-                            } else if (dragAmount.x < -50) {
-                                // Swipe left - go to next tab
-                                selectedTab = if (selectedTab < 4) selectedTab + 1 else selectedTab
+                        onDragStart = { totalDragX = 0f; totalDragY = 0f },
+                        onDragEnd = {
+                            if (kotlin.math.abs(totalDragX) > kotlin.math.abs(totalDragY)) {
+                                if (totalDragX > 80f) {
+                                    selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
+                                } else if (totalDragX < -80f) {
+                                    selectedTab = if (selectedTab < 4) selectedTab + 1 else selectedTab
+                                }
                             }
                         }
+                    ) { _, dragAmount ->
+                        totalDragX += dragAmount.x
+                        totalDragY += dragAmount.y
                     }
                 }
         ) {
