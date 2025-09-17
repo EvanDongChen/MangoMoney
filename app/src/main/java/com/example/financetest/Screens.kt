@@ -53,6 +53,8 @@ import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import java.time.ZoneId
@@ -66,18 +68,11 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
     var showBottomSheet by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text("Finance") },
-                colors = TopAppBarDefaults.topAppBarColors()
-            )
-        }
+        modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Content area
@@ -174,11 +169,18 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
             .fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = "Money Mango",
-                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.moneymango),
+                    contentDescription = "Money Mango Logo",
+                    modifier = Modifier.size(200.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
             BalanceHeader(balance = vm.balance.value)
             // Monthly goal circle
             GoalCircleCard(
@@ -206,6 +208,14 @@ fun TagsTab(vm: FinanceViewModel) {
     var showAddTagDialog by remember { mutableStateOf(false) }
     
     Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = R.drawable.transactions),
+                contentDescription = "Transactions Image",
+                modifier = Modifier.size(200.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
         // Filter section
         Text(
             text = "Filter by Tag",
@@ -312,6 +322,15 @@ fun AnalyticsTab(vm: FinanceViewModel) {
     val maxAbs = months.maxOfOrNull { kotlin.math.abs(it.second) } ?: 1.0
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = R.drawable.analytics),
+                contentDescription = "Analytics Image",
+                modifier = Modifier.size(200.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         Text("Monthly Spending", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -351,6 +370,16 @@ fun GoalsTab(vm: FinanceViewModel) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
+        item {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.goals),
+                    contentDescription = "Goals Image",
+                    modifier = Modifier.size(200.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
         item { Text("Goals", style = MaterialTheme.typography.headlineSmall) }
         item {
             GoalRow(
@@ -403,11 +432,14 @@ fun RemindersTab(vm: FinanceViewModel) {
     val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Reminders",
-            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(16.dp)
-        )
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = R.drawable.reminders),
+                contentDescription = "Reminders Image",
+                modifier = Modifier.size(200.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
 
         Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
