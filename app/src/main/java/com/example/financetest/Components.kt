@@ -46,6 +46,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.text.style.TextAlign
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun BalanceHeader(balance: Double) {
@@ -407,5 +412,80 @@ fun SideTabButton(title: String, selected: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.CenterStart
     ) {
         Text(text = title, color = contentColor)
+    }
+}
+
+@Composable
+fun GoalRow(
+    title: String,
+    goalAmount: Double,
+    spentAmount: Double,
+    onSet: (String) -> Unit
+) {
+    var input by remember { mutableStateOf(if (goalAmount > 0) goalAmount.toString() else "") }
+    val progress = if (goalAmount > 0) (spentAmount / goalAmount).coerceIn(0.0, 1.0) else 0.0
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text(formatCurrency(-spentAmount), style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+            }
+            LinearProgressIndicator(progress = progress.toFloat(), modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("Goal amount") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { onSet(input) }) { Text("Set") }
+            }
+            if (goalAmount > 0) {
+                val remaining = (goalAmount - spentAmount).coerceAtLeast(0.0)
+                Text(
+                    text = "Remaining: ${formatCurrency(-remaining)}",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ReminderRow(
+    reminder: Reminder,
+    onToggleDone: (Long) -> Unit,
+    onDelete: (Long) -> Unit
+) {
+    val dt = Instant.ofEpochMilli(reminder.dueAtMillis).atZone(ZoneId.systemDefault())
+    val df = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(reminder.title, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+            val subtitle = buildString {
+                append(df.format(dt))
+                reminder.amount?.let { append("  •  ").append(formatCurrency(-kotlin.math.abs(it))) }
+            }
+            Text(subtitle, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { onToggleDone(reminder.id) }) { Text(if (reminder.isDone) "Undone" else "Done") }
+            TextButton(onClick = { onDelete(reminder.id) }) { Text("Delete") }
+        }
     }
 }

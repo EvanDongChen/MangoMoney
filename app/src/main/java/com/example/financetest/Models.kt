@@ -13,3 +13,18 @@ data class Tag(
     val name: String,
     val color: Long
 )
+
+enum class GoalPeriod {
+    DAILY,
+    WEEKLY,
+    BIWEEKLY,
+    MONTHLY
+}
+
+data class Reminder(
+    val id: Long,
+    val title: String,
+    val amount: Double?,
+    val dueAtMillis: Long,
+    val isDone: Boolean = false
+)

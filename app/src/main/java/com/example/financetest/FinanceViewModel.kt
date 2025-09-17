@@ -15,6 +15,16 @@ class FinanceViewModel : ViewModel() {
     val balance = mutableDoubleStateOf(0.0)
     val selectedTagFilter = mutableStateOf<String?>(null)
 
+    // Goals: amounts are positive targets for spending caps per period
+    val dailyGoal = mutableDoubleStateOf(0.0)
+    val weeklyGoal = mutableDoubleStateOf(0.0)
+    val biweeklyGoal = mutableDoubleStateOf(0.0)
+    val monthlyGoal = mutableDoubleStateOf(0.0)
+
+    // Reminders
+    private val _reminders = mutableStateListOf<Reminder>()
+    val reminders: List<Reminder> get() = _reminders
+
     fun addTransaction(description: String, amountInput: String, isExpense: Boolean, selectedTags: List<String> = emptyList()) {
         val amount = amountInput.toDoubleOrNull() ?: return
         val signedAmount = if (isExpense) -kotlin.math.abs(amount) else kotlin.math.abs(amount)
@@ -61,5 +71,70 @@ class FinanceViewModel : ViewModel() {
 
     private fun recomputeBalance() {
         balance.value = _transactions.sumOf { it.amount }
+    }
+
+    fun setGoal(period: GoalPeriod, amountInput: String) {
+        val amount = amountInput.toDoubleOrNull() ?: return
+        when (period) {
+            GoalPeriod.DAILY -> dailyGoal.doubleValue = kotlin.math.max(0.0, amount)
+            GoalPeriod.WEEKLY -> weeklyGoal.doubleValue = kotlin.math.max(0.0, amount)
+            GoalPeriod.BIWEEKLY -> biweeklyGoal.doubleValue = kotlin.math.max(0.0, amount)
+            GoalPeriod.MONTHLY -> monthlyGoal.doubleValue = kotlin.math.max(0.0, amount)
+        }
+    }
+
+    fun getSpentFor(period: GoalPeriod): Double {
+        val now = java.time.ZonedDateTime.now()
+        val (start, end) = when (period) {
+            GoalPeriod.DAILY -> {
+                val startOfDay = now.toLocalDate().atStartOfDay(now.zone)
+                startOfDay to startOfDay.plusDays(1)
+            }
+            GoalPeriod.WEEKLY -> {
+                val startOfWeek = now.with(java.time.DayOfWeek.MONDAY).toLocalDate().atStartOfDay(now.zone)
+                startOfWeek to startOfWeek.plusWeeks(1)
+            }
+            GoalPeriod.BIWEEKLY -> {
+                val startOfWeek = now.with(java.time.DayOfWeek.MONDAY).toLocalDate().atStartOfDay(now.zone)
+                startOfWeek to startOfWeek.plusWeeks(2)
+            }
+            GoalPeriod.MONTHLY -> {
+                val startOfMonth = now.withDayOfMonth(1).toLocalDate().atStartOfDay(now.zone)
+                startOfMonth to startOfMonth.plusMonths(1)
+            }
+        }
+
+        val startMillis = start.toInstant().toEpochMilli()
+        val endMillis = end.toInstant().toEpochMilli()
+
+        return _transactions
+            .asSequence()
+            .filter { it.amount < 0 }
+            .filter { it.id in startMillis until endMillis }
+            .sumOf { kotlin.math.abs(it.amount) }
+    }
+
+    fun addReminder(title: String, amountInput: String?, dueAtMillis: Long) {
+        val amount = amountInput?.toDoubleOrNull()
+        val reminder = Reminder(
+            id = System.currentTimeMillis(),
+            title = title.ifBlank { "Reminder" },
+            amount = amount,
+            dueAtMillis = dueAtMillis,
+            isDone = false
+        )
+        _reminders.add(0, reminder)
+    }
+
+    fun toggleReminderDone(id: Long) {
+        val index = _reminders.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val current = _reminders[index]
+            _reminders[index] = current.copy(isDone = !current.isDone)
+        }
+    }
+
+    fun removeReminder(id: Long) {
+        _reminders.removeAll { it.id == id }
     }
 }

@@ -43,6 +43,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +76,7 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                                 selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
                             } else if (dragAmount.x < -50) {
                                 // Swipe left - go to next tab
-                                selectedTab = if (selectedTab < 1) selectedTab + 1 else selectedTab
+                                selectedTab = if (selectedTab < 3) selectedTab + 1 else selectedTab
                             }
                         }
                     }
@@ -84,9 +86,11 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 // Content area
                 Box(modifier = Modifier.weight(1f)) {
                     when (selectedTab) {
-                        0 -> AnalyticsTab(vm = vm)
-                        1 -> FinanceTab(vm = vm, showBottomSheet = showBottomSheet, onShowBottomSheet = { showBottomSheet = it })
-                        2 -> TagsTab(vm = vm)
+                        0 -> RemindersTab(vm = vm)
+                        1 -> AnalyticsTab(vm = vm)
+                        2 -> FinanceTab(vm = vm, showBottomSheet = showBottomSheet, onShowBottomSheet = { showBottomSheet = it })
+                        3 -> TagsTab(vm = vm)
+                        4 -> GoalsTab(vm = vm)
                     }
                 }
 
@@ -95,17 +99,27 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Analytics") }
+                        text = { Text("Reminders") }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Transactions") }
+                        text = { Text("Analytics") }
                     )
                     Tab(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
+                        text = { Text("Transactions") }
+                    )
+                    Tab(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                         text = { Text("Tags") }
+                    )
+                    Tab(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        text = { Text("Goals") }
                     )
                 }
             }
@@ -302,6 +316,109 @@ fun AnalyticsTab(vm: FinanceViewModel) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun GoalsTab(vm: FinanceViewModel) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Top) {
+        Text("Goals", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        GoalRow(
+            title = "Daily",
+            goalAmount = vm.dailyGoal.value,
+            spentAmount = vm.getSpentFor(GoalPeriod.DAILY),
+            onSet = { vm.setGoal(GoalPeriod.DAILY, it) }
+        )
+        GoalRow(
+            title = "Weekly",
+            goalAmount = vm.weeklyGoal.value,
+            spentAmount = vm.getSpentFor(GoalPeriod.WEEKLY),
+            onSet = { vm.setGoal(GoalPeriod.WEEKLY, it) }
+        )
+        GoalRow(
+            title = "Biweekly",
+            goalAmount = vm.biweeklyGoal.value,
+            spentAmount = vm.getSpentFor(GoalPeriod.BIWEEKLY),
+            onSet = { vm.setGoal(GoalPeriod.BIWEEKLY, it) }
+        )
+        GoalRow(
+            title = "Monthly",
+            goalAmount = vm.monthlyGoal.value,
+            spentAmount = vm.getSpentFor(GoalPeriod.MONTHLY),
+            onSet = { vm.setGoal(GoalPeriod.MONTHLY, it) }
+        )
+    }
+}
+
+@Composable
+fun RemindersTab(vm: FinanceViewModel) {
+    var title by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf("") }
+
+    val df = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    fun parseMillisOrNull(text: String): Long? = try {
+        val zdt = java.time.LocalDateTime.parse(text, df).atZone(java.time.ZoneId.systemDefault())
+        zdt.toInstant().toEpochMilli()
+    } catch (t: Throwable) { null }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            text = "Reminders",
+            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(16.dp)
+        )
+
+        Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("Amount (optional)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = dateText,
+                onValueChange = { dateText = it },
+                label = { Text("Due (yyyy-MM-dd HH:mm)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = {
+                        val millis = parseMillisOrNull(dateText) ?: return@TextButton
+                        vm.addReminder(title, amount.ifBlank { null }, millis)
+                        title = ""
+                        amount = ""
+                        dateText = ""
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Add") }
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            items(vm.reminders, key = { it.id }) { r ->
+                ReminderRow(
+                    reminder = r,
+                    onToggleDone = { vm.toggleReminderDone(it) },
+                    onDelete = { vm.removeReminder(it) }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
             }
         }
     }
