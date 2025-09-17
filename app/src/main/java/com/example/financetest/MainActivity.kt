@@ -5,6 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +20,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +38,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,23 +87,35 @@ data class TransactionItem(
     val id: Long,
     val description: String,
     val amount: Double,
-    val isExpense: Boolean
+    val isExpense: Boolean,
+    val tags: List<String> = emptyList()
+)
+
+data class Tag(
+    val id: Long,
+    val name: String,
+    val color: Long
 )
 
 class FinanceViewModel : androidx.lifecycle.ViewModel() {
     private val _transactions = androidx.compose.runtime.mutableStateListOf<TransactionItem>()
     val transactions: List<TransactionItem> get() = _transactions
 
-    val balance = mutableDoubleStateOf(0.0)
+    private val _tags = androidx.compose.runtime.mutableStateListOf<Tag>()
+    val tags: List<Tag> get() = _tags
 
-    fun addTransaction(description: String, amountInput: String, isExpense: Boolean) {
+    val balance = mutableDoubleStateOf(0.0)
+    val selectedTagFilter = mutableStateOf<String?>(null)
+
+    fun addTransaction(description: String, amountInput: String, isExpense: Boolean, selectedTags: List<String> = emptyList()) {
         val amount = amountInput.toDoubleOrNull() ?: return
         val signedAmount = if (isExpense) -kotlin.math.abs(amount) else kotlin.math.abs(amount)
         val item = TransactionItem(
             id = System.currentTimeMillis(),
             description = description.ifBlank { if (isExpense) "Expense" else "Income" },
             amount = signedAmount,
-            isExpense = isExpense
+            isExpense = isExpense,
+            tags = selectedTags
         )
         _transactions.add(0, item)
         recomputeBalance()
@@ -105,6 +126,35 @@ class FinanceViewModel : androidx.lifecycle.ViewModel() {
         recomputeBalance()
     }
 
+    fun addTag(name: String, color: Long) {
+        val tag = Tag(
+            id = System.currentTimeMillis(),
+            name = name,
+            color = color
+        )
+        _tags.add(tag)
+    }
+
+    fun removeTag(id: Long) {
+        _tags.removeAll { it.id == id }
+        // Remove tag from all transactions
+        _transactions.forEachIndexed { index, transaction ->
+            _transactions[index] = transaction.copy(tags = transaction.tags.filter { it != _tags.find { tag -> tag.id == id }?.name })
+        }
+    }
+
+    fun setTagFilter(tagName: String?) {
+        selectedTagFilter.value = tagName
+    }
+
+    fun getFilteredTransactions(): List<TransactionItem> {
+        return if (selectedTagFilter.value == null) {
+            transactions
+        } else {
+            transactions.filter { it.tags.contains(selectedTagFilter.value) }
+        }
+    }
+
     private fun recomputeBalance() {
         balance.value = _transactions.sumOf { it.amount }
     }
@@ -113,6 +163,7 @@ class FinanceViewModel : androidx.lifecycle.ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceAppScreen(vm: FinanceViewModel) {
+    var selectedTab by remember { mutableStateOf(0) }
     var showBottomSheet by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -130,33 +181,39 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                 .padding(innerPadding)
                 .pointerInput(Unit) {
                     detectDragGestures(
-                        onDragEnd = { 
-                            // Only trigger on upward swipes
-                            if (true) { // We'll detect direction in the gesture
-                                showBottomSheet = true
-                            }
-                        }
+                        onDragEnd = { }
                     ) { _, dragAmount ->
-                        // Check if it's an upward swipe (negative Y direction)
-                        if (dragAmount.y < -50) { // Threshold for upward swipe
-                            showBottomSheet = true
+                        // Detect horizontal swipes
+                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y)) {
+                            if (dragAmount.x > 50) {
+                                // Swipe right - go to previous tab
+                                selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
+                            } else if (dragAmount.x < -50) {
+                                // Swipe left - go to next tab
+                                selectedTab = if (selectedTab < 1) selectedTab + 1 else selectedTab
+                            }
                         }
                     }
                 }
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                BalanceHeader(balance = vm.balance.value)
-                HorizontalDivider()
-                TransactionList(
-                    items = vm.transactions,
-                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp),
-                    onDelete = { vm.removeTransaction(it) }
-                )
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Transactions") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Tags") }
+                    )
+                }
                 
-                // Swipe up indicator
-                SwipeUpIndicator(
-                    onSwipeUp = { showBottomSheet = true }
-                )
+                when (selectedTab) {
+                    0 -> FinanceTab(vm = vm, showBottomSheet = showBottomSheet, onShowBottomSheet = { showBottomSheet = it })
+                    1 -> TagsTab(vm = vm)
+                }
             }
         }
     }
@@ -168,12 +225,138 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
         ) {
             AddTransactionBottomSheet(
                 onDismiss = { showBottomSheet = false },
-                onAdd = { desc, amount, isExpense ->
-                    vm.addTransaction(desc, amount, isExpense)
+                onAdd = { desc, amount, isExpense, tags ->
+                    vm.addTransaction(desc, amount, isExpense, tags)
                     showBottomSheet = false
-                }
+                },
+                availableTags = vm.tags
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet: (Boolean) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = { 
+                        onShowBottomSheet(true)
+                    }
+                ) { _, dragAmount ->
+                    // Only trigger on upward swipes (not horizontal)
+                    if (dragAmount.y < -50 && kotlin.math.abs(dragAmount.x) < kotlin.math.abs(dragAmount.y)) {
+                        onShowBottomSheet(true)
+                    }
+                }
+            }
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            BalanceHeader(balance = vm.balance.value)
+            HorizontalDivider()
+            TransactionList(
+                items = vm.getFilteredTransactions(),
+                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp),
+                onDelete = { vm.removeTransaction(it) }
+            )
+            
+            SwipeUpIndicator(
+                onSwipeUp = { onShowBottomSheet(true) }
+            )
+        }
+    }
+}
+
+@Composable
+fun TagsTab(vm: FinanceViewModel) {
+    var showAddTagDialog by remember { mutableStateOf(false) }
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Filter section
+        Text(
+            text = "Filter by Tag",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(16.dp)
+        )
+        
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                TagChip(
+                    name = "All",
+                    isSelected = vm.selectedTagFilter.value == null,
+                    onClick = { vm.setTagFilter(null) }
+                )
+            }
+            items(vm.tags) { tag ->
+                TagChip(
+                    name = tag.name,
+                    isSelected = vm.selectedTagFilter.value == tag.name,
+                    onClick = { vm.setTagFilter(tag.name) }
+                )
+            }
+        }
+        
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+        
+        // Tag management
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Manage Tags",
+                style = MaterialTheme.typography.titleMedium
+            )
+            TextButton(onClick = { showAddTagDialog = true }) {
+                Text("Add Tag")
+            }
+        }
+        
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(vm.tags) { tag ->
+                TagItem(
+                    tag = tag,
+                    onDelete = { vm.removeTag(tag.id) }
+                )
+            }
+        }
+        
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+        
+        // All transactions
+        Text(
+            text = "All Transactions",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        
+        TransactionList(
+            items = vm.getFilteredTransactions(),
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 12.dp),
+            onDelete = { vm.removeTransaction(it) }
+        )
+    }
+    
+    if (showAddTagDialog) {
+        AddTagDialog(
+            onDismiss = { showAddTagDialog = false },
+            onAdd = { name, color ->
+                vm.addTag(name, color)
+                showAddTagDialog = false
+            }
+        )
     }
 }
 
@@ -221,9 +404,29 @@ fun TransactionRow(item: TransactionItem, onDelete: (Long) -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(item.description, style = MaterialTheme.typography.bodyLarge)
+            if (item.tags.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    items(item.tags) { tag ->
+                        Text(
+                            text = "#$tag",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
+    Text(
                 text = formatCurrency(item.amount),
                 color = if (item.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
@@ -237,11 +440,13 @@ fun TransactionRow(item: TransactionItem, onDelete: (Long) -> Unit) {
 @Composable
 fun AddTransactionBottomSheet(
     onDismiss: () -> Unit,
-    onAdd: (String, String, Boolean) -> Unit
+    onAdd: (String, String, Boolean, List<String>) -> Unit,
+    availableTags: List<Tag> = emptyList()
 ) {
     var description by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var isExpense by remember { mutableStateOf(true) }
+    var selectedTags by remember { mutableStateOf(setOf<String>()) }
 
     Column(
         modifier = Modifier
@@ -299,6 +504,30 @@ fun AddTransactionBottomSheet(
             }
         }
         
+        if (availableTags.isNotEmpty()) {
+            Text(
+                text = "Tags",
+                style = MaterialTheme.typography.titleSmall
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(availableTags) { tag ->
+                    TagChip(
+                        name = tag.name,
+                        isSelected = selectedTags.contains(tag.name),
+                        onClick = { 
+                            selectedTags = if (selectedTags.contains(tag.name)) {
+                                selectedTags - tag.name
+                            } else {
+                                selectedTags + tag.name
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -310,7 +539,7 @@ fun AddTransactionBottomSheet(
                 Text("Cancel") 
             }
             TextButton(
-                onClick = { onAdd(description, amount, isExpense) },
+                onClick = { onAdd(description, amount, isExpense, selectedTags.toList()) },
                 modifier = Modifier.weight(1f)
             ) { 
                 Text("Add") 
@@ -349,6 +578,132 @@ fun SwipeUpIndicator(
             )
         }
     }
+}
+
+@Composable
+fun TagChip(
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clickable { onClick() }
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+    Text(
+            text = name,
+            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+fun TagItem(
+    tag: Tag,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .background(
+                        androidx.compose.ui.graphics.Color(tag.color),
+                        CircleShape
+                    )
+            )
+            Text(tag.name)
+        }
+        IconButton(onClick = onDelete) {
+            Text("×")
+        }
+    }
+}
+
+@Composable
+fun AddTagDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String, Long) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf(0xFF6200EE) }
+    
+    val colors = listOf(
+        0xFF6200EE, 0xFF03DAC6, 0xFF018786, 0xFF03DAC5,
+        0xFFCF6679, 0xFFBB86FC, 0xFF3700B3, 0xFF03DAC6
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Tag") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Text("Color", style = MaterialTheme.typography.titleSmall)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(colors) { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Color(color),
+                                    CircleShape
+                                )
+                                .clickable { selectedColor = color }
+                                .then(
+                                    if (selectedColor == color) {
+                                        Modifier.border(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            CircleShape
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(name, selectedColor) },
+                enabled = name.isNotBlank()
+            ) { 
+                Text("Add") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Cancel") 
+            }
+        }
+    )
 }
 
 private fun formatCurrency(value: Double): String {
