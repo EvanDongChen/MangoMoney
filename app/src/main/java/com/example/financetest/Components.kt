@@ -51,6 +51,9 @@ import androidx.compose.ui.text.style.TextAlign
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun BalanceHeader(balance: Double) {
@@ -486,6 +489,53 @@ fun ReminderRow(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { onToggleDone(reminder.id) }) { Text(if (reminder.isDone) "Undone" else "Done") }
             TextButton(onClick = { onDelete(reminder.id) }) { Text("Delete") }
+        }
+    }
+}
+
+@Composable
+fun GoalCircleCard(
+    title: String,
+    goalAmount: Double,
+    spentAmount: Double
+) {
+    val progress = if (goalAmount > 0) (spentAmount / goalAmount).coerceIn(0.0, 1.0) else 0.0
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                val remaining = if (goalAmount > 0) (goalAmount - spentAmount).coerceAtLeast(0.0) else 0.0
+                val subtitle = if (goalAmount > 0) {
+                    "Spent ${formatCurrency(-kotlin.math.abs(spentAmount))} of ${formatCurrency(-kotlin.math.abs(goalAmount))} (Remaining ${formatCurrency(-remaining)})"
+                } else {
+                    "No goal set"
+                }
+                Text(
+                    subtitle,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
+                    CircularProgressIndicator(progress = progress.toFloat(), strokeWidth = 6.dp)
+                    Text(
+                        text = if (goalAmount > 0) "${(progress * 100).toInt()}%" else "—",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    )
+                }
+            }
         }
     }
 }

@@ -45,6 +45,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +82,7 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                                 selectedTab = if (selectedTab > 0) selectedTab - 1 else selectedTab
                             } else if (dragAmount.x < -50) {
                                 // Swipe left - go to next tab
-                                selectedTab = if (selectedTab < 3) selectedTab + 1 else selectedTab
+                                selectedTab = if (selectedTab < 4) selectedTab + 1 else selectedTab
                             }
                         }
                     }
@@ -109,12 +115,12 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
                     Tab(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        text = { Text("Transactions") }
+                        text = { Text("Home") }
                     )
                     Tab(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
-                        text = { Text("Tags") }
+                        text = { Text("Transactions") }
                     )
                     Tab(
                         selected = selectedTab == 4,
@@ -149,21 +155,20 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragEnd = { 
-                        onShowBottomSheet(true)
-                    }
-                ) { _, dragAmount ->
-                    // Only trigger on upward swipes (not horizontal)
-                    if (dragAmount.y < -50 && kotlin.math.abs(dragAmount.x) < kotlin.math.abs(dragAmount.y)) {
-                        onShowBottomSheet(true)
-                    }
-                }
-            }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            Text(
+                text = "Money Mango",
+                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
             BalanceHeader(balance = vm.balance.value)
+            // Monthly goal circle
+            GoalCircleCard(
+                title = "Monthly Goal",
+                goalAmount = vm.monthlyGoal.value,
+                spentAmount = vm.getSpentFor(GoalPeriod.MONTHLY)
+            )
             HorizontalDivider()
             TransactionList(
                 items = vm.getFilteredTransactions(),
@@ -171,6 +176,7 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                 onDelete = { vm.removeTransaction(it) }
             )
 
+            // Only this indicator area triggers the swipe-up add action
             SwipeUpIndicator(
                 onSwipeUp = { onShowBottomSheet(true) }
             )
@@ -323,33 +329,44 @@ fun AnalyticsTab(vm: FinanceViewModel) {
 
 @Composable
 fun GoalsTab(vm: FinanceViewModel) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Top) {
-        Text("Goals", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        GoalRow(
-            title = "Daily",
-            goalAmount = vm.dailyGoal.value,
-            spentAmount = vm.getSpentFor(GoalPeriod.DAILY),
-            onSet = { vm.setGoal(GoalPeriod.DAILY, it) }
-        )
-        GoalRow(
-            title = "Weekly",
-            goalAmount = vm.weeklyGoal.value,
-            spentAmount = vm.getSpentFor(GoalPeriod.WEEKLY),
-            onSet = { vm.setGoal(GoalPeriod.WEEKLY, it) }
-        )
-        GoalRow(
-            title = "Biweekly",
-            goalAmount = vm.biweeklyGoal.value,
-            spentAmount = vm.getSpentFor(GoalPeriod.BIWEEKLY),
-            onSet = { vm.setGoal(GoalPeriod.BIWEEKLY, it) }
-        )
-        GoalRow(
-            title = "Monthly",
-            goalAmount = vm.monthlyGoal.value,
-            spentAmount = vm.getSpentFor(GoalPeriod.MONTHLY),
-            onSet = { vm.setGoal(GoalPeriod.MONTHLY, it) }
-        )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        item { Text("Goals", style = MaterialTheme.typography.headlineSmall) }
+        item {
+            GoalRow(
+                title = "Daily",
+                goalAmount = vm.dailyGoal.value,
+                spentAmount = vm.getSpentFor(GoalPeriod.DAILY),
+                onSet = { vm.setGoal(GoalPeriod.DAILY, it) }
+            )
+        }
+        item {
+            GoalRow(
+                title = "Weekly",
+                goalAmount = vm.weeklyGoal.value,
+                spentAmount = vm.getSpentFor(GoalPeriod.WEEKLY),
+                onSet = { vm.setGoal(GoalPeriod.WEEKLY, it) }
+            )
+        }
+        item {
+            GoalRow(
+                title = "Biweekly",
+                goalAmount = vm.biweeklyGoal.value,
+                spentAmount = vm.getSpentFor(GoalPeriod.BIWEEKLY),
+                onSet = { vm.setGoal(GoalPeriod.BIWEEKLY, it) }
+            )
+        }
+        item {
+            GoalRow(
+                title = "Monthly",
+                goalAmount = vm.monthlyGoal.value,
+                spentAmount = vm.getSpentFor(GoalPeriod.MONTHLY),
+                onSet = { vm.setGoal(GoalPeriod.MONTHLY, it) }
+            )
+        }
     }
 }
 
@@ -357,13 +374,16 @@ fun GoalsTab(vm: FinanceViewModel) {
 fun RemindersTab(vm: FinanceViewModel) {
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var dateText by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
-    val df = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-    fun parseMillisOrNull(text: String): Long? = try {
-        val zdt = java.time.LocalDateTime.parse(text, df).atZone(java.time.ZoneId.systemDefault())
-        zdt.toInstant().toEpochMilli()
-    } catch (t: Throwable) { null }
+    // Start with now rounded to next hour
+    var selectedDateTime by remember {
+        mutableStateOf(
+            ZonedDateTime.now().plusMinutes(60 - (ZonedDateTime.now().minute % 60).toLong())
+        )
+    }
+    val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d yyyy")
+    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -388,21 +408,51 @@ fun RemindersTab(vm: FinanceViewModel) {
                 keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = dateText,
-                onValueChange = { dateText = it },
-                label = { Text("Due (yyyy-MM-dd HH:mm)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 TextButton(
                     onClick = {
-                        val millis = parseMillisOrNull(dateText) ?: return@TextButton
+                        val z = selectedDateTime
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                selectedDateTime = selectedDateTime
+                                    .withYear(year)
+                                    .withMonth(month + 1)
+                                    .withDayOfMonth(dayOfMonth)
+                            },
+                            z.year,
+                            z.monthValue - 1,
+                            z.dayOfMonth
+                        ).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Date: ${'$'}{selectedDateTime.format(dateFormatter)}") }
+                TextButton(
+                    onClick = {
+                        val z = selectedDateTime
+                        TimePickerDialog(
+                            context,
+                            { _, hour, minute ->
+                                selectedDateTime = selectedDateTime
+                                    .withHour(hour)
+                                    .withMinute(minute)
+                            },
+                            z.hour,
+                            z.minute,
+                            false
+                        ).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Time: ${'$'}{selectedDateTime.format(timeFormatter)}") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = {
+                        val millis = selectedDateTime.withSecond(0).withNano(0).toInstant().toEpochMilli()
                         vm.addReminder(title, amount.ifBlank { null }, millis)
                         title = ""
                         amount = ""
-                        dateText = ""
+                        selectedDateTime = ZonedDateTime.now(ZoneId.systemDefault()).plusHours(1)
                     },
                     modifier = Modifier.weight(1f)
                 ) { Text("Add") }
