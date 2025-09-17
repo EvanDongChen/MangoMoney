@@ -380,7 +380,6 @@ fun GoalsTab(vm: FinanceViewModel) {
                 )
             }
         }
-        item { Text("Goals", style = MaterialTheme.typography.headlineSmall) }
         item {
             GoalRow(
                 title = "Daily",
