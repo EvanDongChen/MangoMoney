@@ -3,6 +3,7 @@ package com.example.financetest
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -15,12 +16,13 @@ class OCRService {
         return suspendCancellableCoroutine { continuation ->
             val image = InputImage.fromBitmap(bitmap, 0)
             
-            textRecognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    continuation.resume(visionText.text)
+            val task = textRecognizer.process(image)
+            task
+                .addOnSuccessListener { visionText: Text ->
+                    if (continuation.isActive) continuation.resume(visionText.text)
                 }
-                .addOnFailureListener { exception ->
-                    continuation.resumeWithException(exception)
+                .addOnFailureListener { exception: Exception ->
+                    if (continuation.isActive) continuation.resumeWithException(exception)
                 }
         }
     }

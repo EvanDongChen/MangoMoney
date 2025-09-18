@@ -26,25 +26,41 @@ class FinanceViewModel : ViewModel() {
     val reminders: List<Reminder> get() = _reminders
 
     fun addTransaction(description: String, amountInput: String, isExpense: Boolean, selectedTags: List<String> = emptyList()): Boolean {
-        // Sanitize amount input by keeping digits and dot only (removes currency symbols, commas, etc.)
-        val sanitized = amountInput.replace(Regex("[^0-9.]"), "").trim()
-        val amount = sanitized.toDoubleOrNull()
-        if (amount == null) {
-            android.util.Log.w("FinanceViewModel", "Failed to parse transaction amount: '$amountInput' -> '$sanitized'")
-            return false
+        return try {
+            android.util.Log.d("FinanceViewModel", "Adding transaction: description='$description', amount='$amountInput', isExpense=$isExpense, tags=$selectedTags")
+            
+            // Sanitize amount input by keeping digits and dot only (removes currency symbols, commas, etc.)
+            val sanitized = amountInput.replace(Regex("[^0-9.]"), "").trim()
+            val amount = sanitized.toDoubleOrNull()
+            
+            if (amount == null) {
+                android.util.Log.w("FinanceViewModel", "Failed to parse transaction amount: '$amountInput' -> '$sanitized'")
+                return false
+            }
+            
+            if (amount <= 0) {
+                android.util.Log.w("FinanceViewModel", "Invalid amount: $amount (must be > 0)")
+                return false
+            }
+            
+            val signedAmount = if (isExpense) -kotlin.math.abs(amount) else kotlin.math.abs(amount)
+            val item = TransactionItem(
+                id = System.currentTimeMillis(),
+                description = description.ifBlank { if (isExpense) "Expense" else "Income" },
+                amount = signedAmount,
+                isExpense = isExpense,
+                tags = selectedTags
+            )
+            
+            _transactions.add(0, item)
+            recomputeBalance()
+            
+            android.util.Log.d("FinanceViewModel", "Successfully added transaction: $item")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FinanceViewModel", "Error adding transaction: ${e.message}", e)
+            false
         }
-        val signedAmount = if (isExpense) -kotlin.math.abs(amount) else kotlin.math.abs(amount)
-        val item = TransactionItem(
-            id = System.currentTimeMillis(),
-            description = description.ifBlank { if (isExpense) "Expense" else "Income" },
-            amount = signedAmount,
-
-            isExpense = isExpense,
-            tags = selectedTags
-        )
-        _transactions.add(0, item)
-        recomputeBalance()
-        return true
     }
 
     fun removeTransaction(id: Long) {
@@ -77,7 +93,12 @@ class FinanceViewModel : ViewModel() {
     }
 
     private fun recomputeBalance() {
-        balance.value = _transactions.sumOf { it.amount }
+        try {
+            balance.value = _transactions.sumOf { it.amount }
+            android.util.Log.d("FinanceViewModel", "Balance recomputed: ${balance.value}")
+        } catch (e: Exception) {
+            android.util.Log.e("FinanceViewModel", "Error recomputing balance: ${e.message}", e)
+        }
     }
 
     fun setGoal(period: GoalPeriod, amountInput: String) {

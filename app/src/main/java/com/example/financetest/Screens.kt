@@ -239,7 +239,7 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
 
             // Visual indicator for swipe up
             SwipeUpIndicator(
-                onSwipeUp = { /* No longer needed - swipe handled by parent Box */ }
+                onSwipeUp = { onShowBottomSheet(true) }
             )
         }
     }
@@ -282,27 +282,39 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                 onAddTag = { name, color -> vm.addTag(name, color) },
                 onConfirm = { editableTransactions ->
                     try {
+                        android.util.Log.d("TransactionPreview", "Starting to process ${editableTransactions.size} transactions")
+                        
                         editableTransactions.forEach { editable ->
-                            // Validate amount before adding (sanitization handled in ViewModel)
-                            val amount = editable.amount.replace(Regex("[^0-9.]"), "").toDoubleOrNull()
-                            android.util.Log.d("TransactionPreview", "Processing transaction: amount='${editable.amount}', parsed=$amount, description='${editable.description}'")
+                            try {
+                                // Validate amount before adding (sanitization handled in ViewModel)
+                                val amount = editable.amount.replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+                                android.util.Log.d("TransactionPreview", "Processing transaction: amount='${editable.amount}', parsed=$amount, description='${editable.description}', tags=${editable.tags}")
 
-                            if (amount != null && amount > 0) {
-                                val ok = vm.addTransaction(
-                                    editable.description,
-                                    editable.amount,
-                                    editable.isExpense,
-                                    editable.tags.toList()
-                                )
-                                if (ok) {
-                                    android.util.Log.d("TransactionPreview", "Successfully added transaction")
+                                if (amount != null && amount > 0) {
+                                    val tagsList = editable.tags.toList()
+                                    android.util.Log.d("TransactionPreview", "Calling addTransaction with tags: $tagsList")
+                                    
+                                    val ok = vm.addTransaction(
+                                        editable.description,
+                                        editable.amount,
+                                        editable.isExpense,
+                                        tagsList
+                                    )
+                                    
+                                    if (ok) {
+                                        android.util.Log.d("TransactionPreview", "Successfully added transaction")
+                                    } else {
+                                        android.util.Log.w("TransactionPreview", "Failed to add transaction: amount='${editable.amount}'")
+                                    }
                                 } else {
-                                    android.util.Log.w("TransactionPreview", "Failed to add transaction: amount='${editable.amount}'")
+                                    android.util.Log.w("TransactionPreview", "Skipping invalid transaction: amount='${editable.amount}'")
                                 }
-                            } else {
-                                android.util.Log.w("TransactionPreview", "Skipping invalid transaction: amount='${editable.amount}'")
+                            } catch (e: Exception) {
+                                android.util.Log.e("TransactionPreview", "Error processing individual transaction: ${e.message}", e)
                             }
                         }
+                        
+                        android.util.Log.d("TransactionPreview", "Finished processing all transactions")
                     } catch (e: Exception) {
                         android.util.Log.e("TransactionPreview", "Error adding transactions: ${e.message}", e)
                         Toast.makeText(ctx, "Failed to add transactions: ${e.message}", Toast.LENGTH_LONG).show()
