@@ -25,8 +25,14 @@ class FinanceViewModel : ViewModel() {
     private val _reminders = mutableStateListOf<Reminder>()
     val reminders: List<Reminder> get() = _reminders
 
-    fun addTransaction(description: String, amountInput: String, isExpense: Boolean, selectedTags: List<String> = emptyList()) {
-        val amount = amountInput.toDoubleOrNull() ?: return
+    fun addTransaction(description: String, amountInput: String, isExpense: Boolean, selectedTags: List<String> = emptyList()): Boolean {
+        // Sanitize amount input by keeping digits and dot only (removes currency symbols, commas, etc.)
+        val sanitized = amountInput.replace(Regex("[^0-9.]"), "").trim()
+        val amount = sanitized.toDoubleOrNull()
+        if (amount == null) {
+            android.util.Log.w("FinanceViewModel", "Failed to parse transaction amount: '$amountInput' -> '$sanitized'")
+            return false
+        }
         val signedAmount = if (isExpense) -kotlin.math.abs(amount) else kotlin.math.abs(amount)
         val item = TransactionItem(
             id = System.currentTimeMillis(),
@@ -38,6 +44,7 @@ class FinanceViewModel : ViewModel() {
         )
         _transactions.add(0, item)
         recomputeBalance()
+        return true
     }
 
     fun removeTransaction(id: Long) {
