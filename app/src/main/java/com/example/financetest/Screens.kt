@@ -75,7 +75,7 @@ import android.widget.Toast
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceAppScreen(vm: FinanceViewModel) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(2) }
     var showBottomSheet by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
 
