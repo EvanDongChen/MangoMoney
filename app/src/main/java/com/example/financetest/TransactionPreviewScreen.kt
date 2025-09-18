@@ -2,8 +2,10 @@ package com.example.financetest
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -25,6 +27,7 @@ data class EditableTransaction(
     var description: String,
     var isExpense: Boolean = true,
     var isSelected: Boolean = true,
+    var tags: Set<String> = emptySet(),
     val originalConfidence: Float
 )
 
@@ -32,6 +35,7 @@ data class EditableTransaction(
 fun TransactionPreviewScreen(
     parsedTransactions: List<ParsedTransaction>,
     availableTags: List<Tag>,
+    onAddTag: (String, Long) -> Unit,
     onConfirm: (List<EditableTransaction>) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -43,6 +47,7 @@ fun TransactionPreviewScreen(
                     description = parsed.description,
                     isExpense = true, // Default to expense
                     isSelected = true,
+                    tags = emptySet(),
                     originalConfidence = parsed.confidence
                 )
             }
@@ -87,24 +92,33 @@ fun TransactionPreviewScreen(
             items(editableTransactions) { transaction ->
                 EditableTransactionCard(
                     transaction = transaction,
+                    availableTags = availableTags,
                     onAmountChange = { newAmount ->
-                        editableTransactions = editableTransactions.map { 
-                            if (it.id == transaction.id) it.copy(amount = newAmount) else it 
+                        editableTransactions = editableTransactions.map {
+                            if (it.id == transaction.id) it.copy(amount = newAmount) else it
                         }
                     },
                     onDescriptionChange = { newDescription ->
-                        editableTransactions = editableTransactions.map { 
-                            if (it.id == transaction.id) it.copy(description = newDescription) else it 
+                        editableTransactions = editableTransactions.map {
+                            if (it.id == transaction.id) it.copy(description = newDescription) else it
                         }
                     },
                     onExpenseToggle = {
-                        editableTransactions = editableTransactions.map { 
-                            if (it.id == transaction.id) it.copy(isExpense = !it.isExpense) else it 
+                        editableTransactions = editableTransactions.map {
+                            if (it.id == transaction.id) it.copy(isExpense = !it.isExpense) else it
                         }
                     },
                     onSelectionToggle = {
-                        editableTransactions = editableTransactions.map { 
-                            if (it.id == transaction.id) it.copy(isSelected = !it.isSelected) else it 
+                        editableTransactions = editableTransactions.map {
+                            if (it.id == transaction.id) it.copy(isSelected = !it.isSelected) else it
+                        }
+                    },
+                    onTagToggle = { tagName ->
+                        editableTransactions = editableTransactions.map {
+                            if (it.id == transaction.id) {
+                                val newTags = if (it.tags.contains(tagName)) it.tags - tagName else it.tags + tagName
+                                it.copy(tags = newTags)
+                            } else it
                         }
                     },
                     onRemove = {
@@ -139,24 +153,26 @@ fun TransactionPreviewScreen(
     }
     
     // Add tag dialog
-    if (showAddTagDialog) {
-        AddTagDialog(
-            onDismiss = { showAddTagDialog = false },
-            onAdd = { name, color ->
-                // This would need to be handled by the parent component
-                showAddTagDialog = false
-            }
-        )
-    }
+        if (showAddTagDialog) {
+            AddTagDialog(
+                onDismiss = { showAddTagDialog = false },
+                onAdd = { name, color ->
+                    onAddTag(name, color)
+                    showAddTagDialog = false
+                }
+            )
+        }
 }
 
 @Composable
 fun EditableTransactionCard(
     transaction: EditableTransaction,
+    availableTags: List<Tag> = emptyList(),
     onAmountChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onExpenseToggle: () -> Unit,
     onSelectionToggle: () -> Unit,
+    onTagToggle: (String) -> Unit,
     onRemove: () -> Unit
 ) {
     Card(
@@ -253,6 +269,21 @@ fun EditableTransactionCard(
                     )
                 ) {
                     Text(if (!transaction.isExpense) "✓ Income" else "Income")
+                }
+            }
+            // Tags
+            if (availableTags.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), 
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    items(availableTags) { tag ->
+                        TagChip(
+                            name = tag.name,
+                            isSelected = transaction.tags.contains(tag.name),
+                            onClick = { onTagToggle(tag.name) }
+                        )
+                    }
                 }
             }
         }

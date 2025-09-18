@@ -279,6 +279,7 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
             TransactionPreviewScreen(
                 parsedTransactions = parsedTransactions,
                 availableTags = vm.tags,
+                onAddTag = { name, color -> vm.addTag(name, color) },
                 onConfirm = { editableTransactions ->
                     try {
                         editableTransactions.forEach { editable ->
@@ -291,7 +292,7 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                                     editable.description,
                                     editable.amount,
                                     editable.isExpense,
-                                    emptyList() // Could add tag selection later
+                                    editable.tags.toList()
                                 )
                                 if (ok) {
                                     android.util.Log.d("TransactionPreview", "Successfully added transaction")
