@@ -1,4 +1,4 @@
-# MangoMoney
+# MoneyMango
 A personal finance prototype with:
 - OCR receipt parsing (ML Kit), manual entry
 - Tags, goals (daily/weekly/biweekly/monthly)
