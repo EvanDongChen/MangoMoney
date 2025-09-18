@@ -41,6 +41,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.text.KeyboardOptions
@@ -53,8 +55,11 @@ import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import java.time.ZoneId
@@ -167,6 +172,13 @@ fun FinanceAppScreen(vm: FinanceViewModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet: (Boolean) -> Unit) {
+    var showImagePicker by remember { mutableStateOf(false) }
+    var showTransactionPreview by remember { mutableStateOf(false) }
+    var parsedTransactions by remember { mutableStateOf<List<ParsedTransaction>>(emptyList()) }
+    val coroutineScope = rememberCoroutineScope()
+    val ocrService = remember { OCRService() }
+    val numberParser = remember { NumberParser() }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -182,6 +194,30 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                 DottedDivider(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp).height(1.dp))
             }
             BalanceHeader(balance = vm.balance.value)
+            
+            // Quick action buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showImagePicker = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.CameraAlt, contentDescription = "Upload Receipt")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Upload Receipt")
+                }
+                OutlinedButton(
+                    onClick = { onShowBottomSheet(true) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Add Manually")
+                }
+            }
+            
             // Monthly goal circle
             GoalCircleCard(
                 title = "Monthly Goal",
@@ -198,6 +234,71 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
             // Visual indicator for swipe up
             SwipeUpIndicator(
                 onSwipeUp = { /* No longer needed - swipe handled by parent Box */ }
+            )
+        }
+    }
+    
+    // Image picker bottom sheet
+    if (showImagePicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showImagePicker = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            SimpleImagePickerBottomSheet(
+                onDismiss = { showImagePicker = false },
+                onImageSelected = { bitmap ->
+                    showImagePicker = false
+                    coroutineScope.launch {
+                        try {
+                            val extractedText = ocrService.extractTextFromImage(bitmap)
+                            val transactions = numberParser.parseTextForTransactions(extractedText)
+                            parsedTransactions = transactions
+                            showTransactionPreview = true
+                        } catch (e: Exception) {
+                            // Handle error - could show a toast or error dialog
+                            showImagePicker = false
+                        }
+                    }
+                }
+            )
+        }
+    }
+    
+    // Transaction preview bottom sheet
+    if (showTransactionPreview) {
+        ModalBottomSheet(
+            onDismissRequest = { showTransactionPreview = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            TransactionPreviewScreen(
+                parsedTransactions = parsedTransactions,
+                availableTags = vm.tags,
+                onConfirm = { editableTransactions ->
+                    editableTransactions.forEach { editable ->
+                        try {
+                            // Validate amount before adding
+                            val amount = editable.amount.toDoubleOrNull()
+                            android.util.Log.d("TransactionPreview", "Processing transaction: amount='${editable.amount}', parsed=$amount, description='${editable.description}'")
+                            
+                            if (amount != null && amount > 0) {
+                                vm.addTransaction(
+                                    editable.description,
+                                    editable.amount,
+                                    editable.isExpense,
+                                    emptyList() // Could add tag selection later
+                                )
+                                android.util.Log.d("TransactionPreview", "Successfully added transaction")
+                            } else {
+                                android.util.Log.w("TransactionPreview", "Skipping invalid transaction: amount='${editable.amount}'")
+                            }
+                        } catch (e: Exception) {
+                            // Log error but don't crash
+                            android.util.Log.e("TransactionPreview", "Error adding transaction: ${e.message}", e)
+                        }
+                    }
+                    showTransactionPreview = false
+                },
+                onCancel = { showTransactionPreview = false }
             )
         }
     }
