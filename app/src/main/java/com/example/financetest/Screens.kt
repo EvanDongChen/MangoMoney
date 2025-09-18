@@ -60,6 +60,9 @@ import android.app.TimePickerDialog
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.platform.LocalContext
+import android.util.Log
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -498,12 +501,39 @@ fun RemindersTab(vm: FinanceViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 TextButton(
                     onClick = {
-                        val millis = selectedDateTime.withSecond(0).withNano(0).toInstant().toEpochMilli()
-                        vm.addReminder(title, amount.ifBlank { null }, millis)
-                        title = ""
-                        amount = ""
-                        selectedDateTime = ZonedDateTime.now(ZoneId.systemDefault()).plusHours(1)
-                    },
+                            val millis = selectedDateTime.withSecond(0).withNano(0).toInstant().toEpochMilli()
+
+                            if (millis <= System.currentTimeMillis()) {
+                                Toast.makeText(context, "Please pick a future date/time for the reminder", Toast.LENGTH_LONG).show()
+                                return@TextButton
+                            }
+
+                            try {
+                                val id = vm.addReminder(title, amount.ifBlank { null }, millis)
+                                // schedule notification; protect against any runtime exception so the app doesn't crash
+                                scheduleReminderNotification(
+                                    context,
+                                    id,
+                                    title.ifBlank { "Reminder" },
+                                    amount.ifBlank { null }?.toDoubleOrNull(),
+                                    millis
+                                )
+                                // only clear inputs if scheduling succeeded
+                                title = ""
+                                amount = ""
+                                selectedDateTime = ZonedDateTime.now(ZoneId.systemDefault()).plusHours(1)
+                            } catch (e: Exception) {
+                                // remove the reminder we may have added (scheduling failed)
+                                try {
+                                    // If id was created, remove any matching reminders; safe to call even if none
+                                    // (we don't have id here if addReminder failed before returning, but calling remove by time-based search to be safe)
+                                    // Remove any reminders scheduled at this due time
+                                    vm.reminders.filter { it.dueAtMillis == millis }.forEach { vm.removeReminder(it.id) }
+                                } catch (_: Exception) {}
+                                Toast.makeText(context, "Failed to schedule reminder: ${e.message}", Toast.LENGTH_LONG).show()
+                                Log.e("RemindersTab", "Failed to schedule reminder", e)
+                            }
+                        },
                     modifier = Modifier.weight(1f)
                 ) { Text("Add") }
             }
@@ -516,7 +546,10 @@ fun RemindersTab(vm: FinanceViewModel) {
                 ReminderRow(
                     reminder = r,
                     onToggleDone = { vm.toggleReminderDone(it) },
-                    onDelete = { vm.removeReminder(it) }
+                    onDelete = {
+                        vm.removeReminder(it)
+                        cancelReminderNotification(context, it)
+                    }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
             }

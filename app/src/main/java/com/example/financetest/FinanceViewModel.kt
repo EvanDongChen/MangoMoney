@@ -114,16 +114,18 @@ class FinanceViewModel : ViewModel() {
             .sumOf { kotlin.math.abs(it.amount) }
     }
 
-    fun addReminder(title: String, amountInput: String?, dueAtMillis: Long) {
+    fun addReminder(title: String, amountInput: String?, dueAtMillis: Long): Long {
         val amount = amountInput?.toDoubleOrNull()
+        val id = System.currentTimeMillis()
         val reminder = Reminder(
-            id = System.currentTimeMillis(),
+            id = id,
             title = title.ifBlank { "Reminder" },
             amount = amount,
             dueAtMillis = dueAtMillis,
             isDone = false
         )
         _reminders.add(0, reminder)
+        return id
     }
 
     fun toggleReminderDone(id: Long) {
