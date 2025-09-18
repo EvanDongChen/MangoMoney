@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Icon
+import android.graphics.Bitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.InsertChart
@@ -59,6 +61,7 @@ import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import androidx.compose.runtime.rememberCoroutineScope
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -182,8 +185,25 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
     var showTransactionPreview by remember { mutableStateOf(false) }
     var parsedTransactions by remember { mutableStateOf<List<ParsedTransaction>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
-    val ocrService = remember { OCRService() }
+    var currentJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    
+    // Create OCRService with proper cleanup
+    val ocrService = remember {
+        OCRService()
+    }
     val numberParser = remember { NumberParser() }
+    
+    // Cleanup OCRService and cancel jobs when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                currentJob?.cancel()
+                ocrService.close()
+            } catch (e: Exception) {
+                android.util.Log.e("FinanceTab", "Error during cleanup", e)
+            }
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -254,14 +274,72 @@ fun FinanceTab(vm: FinanceViewModel, showBottomSheet: Boolean, onShowBottomSheet
                 onDismiss = { showImagePicker = false },
                 onImageSelected = { bitmap ->
                     showImagePicker = false
-                    coroutineScope.launch {
+                    
+                    // Cancel any existing job
+                    currentJob?.cancel()
+                    
+                    currentJob = coroutineScope.launch {
                         try {
-                            val extractedText = ocrService.extractTextFromImage(bitmap)
+                            android.util.Log.d("FinanceTab", "Starting OCR processing for image: ${bitmap.width}x${bitmap.height}")
+                            
+                            // Check if job was cancelled
+                            if (!this.isActive) return@launch
+                            
+                            // Resize bitmap if too large to prevent memory issues
+                            val processedBitmap = if (bitmap.width > 1024 || bitmap.height > 1024) {
+                                val scale = minOf(1024f / bitmap.width, 1024f / bitmap.height)
+                                val newWidth = (bitmap.width * scale).toInt()
+                                val newHeight = (bitmap.height * scale).toInt()
+                                android.util.Log.d("FinanceTab", "Resizing bitmap from ${bitmap.width}x${bitmap.height} to ${newWidth}x${newHeight}")
+                                Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                            } else {
+                                bitmap
+                            }
+                            
+                            // Check if job was cancelled after bitmap processing
+                            if (!this.isActive) {
+                                if (processedBitmap != bitmap) {
+                                    processedBitmap.recycle()
+                                }
+                                return@launch
+                            }
+                            
+                            val extractedText = ocrService.extractTextFromImage(processedBitmap)
+                            android.util.Log.d("FinanceTab", "OCR extracted text: $extractedText")
+                            
+                            // Check if job was cancelled after OCR
+                            if (!this.isActive) {
+                                if (processedBitmap != bitmap) {
+                                    processedBitmap.recycle()
+                                }
+                                return@launch
+                            }
+                            
                             val transactions = numberParser.parseTextForTransactions(extractedText)
+                            android.util.Log.d("FinanceTab", "Parsed ${transactions.size} transactions")
+                            
+                            // Check if job was cancelled after parsing
+                            if (!this.isActive) {
+                                if (processedBitmap != bitmap) {
+                                    processedBitmap.recycle()
+                                }
+                                return@launch
+                            }
+                            
                             parsedTransactions = transactions
                             showTransactionPreview = true
+                            
+                            // Recycle the processed bitmap if it was resized
+                            if (processedBitmap != bitmap) {
+                                processedBitmap.recycle()
+                            }
+                            
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            android.util.Log.d("FinanceTab", "OCR processing cancelled")
+                            throw e // Re-throw cancellation exception
                         } catch (e: Exception) {
-                            // Handle error - could show a toast or error dialog
+                            android.util.Log.e("FinanceTab", "Error during OCR processing", e)
+                            Toast.makeText(ctx, "Failed to process image: ${e.message}", Toast.LENGTH_LONG).show()
                             showImagePicker = false
                         }
                     }

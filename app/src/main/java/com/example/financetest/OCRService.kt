@@ -14,16 +14,30 @@ class OCRService {
 
     suspend fun extractTextFromImage(bitmap: Bitmap): String {
         return suspendCancellableCoroutine { continuation ->
-            val image = InputImage.fromBitmap(bitmap, 0)
-            
-            val task = textRecognizer.process(image)
-            task
-                .addOnSuccessListener { visionText: Text ->
-                    if (continuation.isActive) continuation.resume(visionText.text)
+            try {
+                val image = InputImage.fromBitmap(bitmap, 0)
+                
+                val task = textRecognizer.process(image)
+                task
+                    .addOnSuccessListener { visionText: Text ->
+                        if (continuation.isActive) {
+                            val extractedText = visionText.text ?: ""
+                            android.util.Log.d("OCRService", "Successfully extracted text: ${extractedText.length} characters")
+                            continuation.resume(extractedText)
+                        }
+                    }
+                    .addOnFailureListener { exception: Exception ->
+                        if (continuation.isActive) {
+                            android.util.Log.e("OCRService", "OCR processing failed", exception)
+                            continuation.resumeWithException(exception)
+                        }
+                    }
+            } catch (e: Exception) {
+                if (continuation.isActive) {
+                    android.util.Log.e("OCRService", "Error creating InputImage", e)
+                    continuation.resumeWithException(e)
                 }
-                .addOnFailureListener { exception: Exception ->
-                    if (continuation.isActive) continuation.resumeWithException(exception)
-                }
+            }
         }
     }
 

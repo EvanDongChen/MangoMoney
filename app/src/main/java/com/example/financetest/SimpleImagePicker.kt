@@ -180,12 +180,54 @@ private fun createImageFile(context: Context): File {
 }
 
 private fun loadImageFromUri(context: Context, uri: Uri, onLoaded: (Bitmap) -> Unit) {
+    var inputStream: java.io.InputStream? = null
     try {
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val bitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream = context.contentResolver.openInputStream(uri)
+        
+        // Decode with options to prevent memory issues
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        inputStream?.let { BitmapFactory.decodeStream(it, null, options) }
+        
+        // Calculate sample size to reduce memory usage
+        val sampleSize = calculateInSampleSize(options, 1024, 1024)
+        
+        // Reset stream and decode with sample size
         inputStream?.close()
+        inputStream = context.contentResolver.openInputStream(uri)
+        
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inJustDecodeBounds = false
+        }
+        
+        val bitmap = inputStream?.let { BitmapFactory.decodeStream(it, null, decodeOptions) }
         bitmap?.let { onLoaded(it) }
     } catch (e: Exception) {
-        e.printStackTrace()
+        android.util.Log.e("SimpleImagePicker", "Error loading image", e)
+    } finally {
+        try {
+            inputStream?.close()
+        } catch (e: Exception) {
+            android.util.Log.e("SimpleImagePicker", "Error closing input stream", e)
+        }
     }
+}
+
+private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val height = options.outHeight
+    val width = options.outWidth
+    var inSampleSize = 1
+
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight = height / 2
+        val halfWidth = width / 2
+
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+
+    return inSampleSize
 }

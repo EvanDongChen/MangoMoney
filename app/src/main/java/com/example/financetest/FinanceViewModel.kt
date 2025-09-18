@@ -53,6 +53,14 @@ class FinanceViewModel : ViewModel() {
             )
             
             _transactions.add(0, item)
+            
+            // Limit transactions to prevent memory issues (keep last 1000 transactions)
+            if (_transactions.size > 1000) {
+                val toRemove = _transactions.subList(1000, _transactions.size)
+                _transactions.removeAll(toRemove)
+                android.util.Log.d("FinanceViewModel", "Removed ${toRemove.size} old transactions to prevent memory issues")
+            }
+            
             recomputeBalance()
             
             android.util.Log.d("FinanceViewModel", "Successfully added transaction: $item")
@@ -166,5 +174,19 @@ class FinanceViewModel : ViewModel() {
 
     fun removeReminder(id: Long) {
         _reminders.removeAll { it.id == id }
+    }
+    
+    fun clearOldTransactions() {
+        val currentTime = System.currentTimeMillis()
+        val thirtyDaysAgo = currentTime - (30 * 24 * 60 * 60 * 1000L) // 30 days in milliseconds
+        
+        val oldTransactions = _transactions.filter { it.id < thirtyDaysAgo }
+        val removedCount = oldTransactions.size
+        _transactions.removeAll { it.id < thirtyDaysAgo }
+        
+        if (removedCount > 0) {
+            android.util.Log.d("FinanceViewModel", "Cleared $removedCount old transactions")
+            recomputeBalance()
+        }
     }
 }
